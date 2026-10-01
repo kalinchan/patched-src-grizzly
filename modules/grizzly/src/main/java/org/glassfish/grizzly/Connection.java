@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2008, 2017 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2008, 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -264,7 +265,33 @@ public interface Connection<L> extends Readable<L>, Writeable<L>,
      * @since 2.2
      */
     void setMaxAsyncWriteQueueSize(int maxAsyncWriteQueueSize);
-    
+
+    /**
+     * Gets the multiplier used to calculate the hard limit for the asynchronous
+     * write queue reservation size per connection.
+     *
+     * <p>The hard limit is calculated by multiplying the connection's configured
+     * soft limit by this value.</p>
+     *
+     * @return the hard limit multiplier
+     */
+    int getAsyncWriteQueueSizeHardLimitMultiplier();
+
+    /**
+     * Sets the multiplier used to calculate the hard limit for the asynchronous
+     * write queue reservation size per connection.
+     *
+     * <p>The hard limit is calculated by multiplying the connection's configured
+     * soft limit by this value. If the value is less than or equal to zero, the
+     * default multiplier is used.</p>
+     *
+     * <p>The default multiplier is {@code 4}.</p>
+     *
+     * @param asyncWriteQueueSizeHardLimitMultiplier the hard limit multiplier,
+     *        or a value less than or equal to zero to use the default multiplier
+     */
+    void setAsyncWriteQueueSizeHardLimitMultiplier(int asyncWriteQueueSizeHardLimitMultiplier);
+
     /**
      * Returns the current value for the blocking read timeout converted to the
      * provided {@link TimeUnit} specification.  If this value hasn't been

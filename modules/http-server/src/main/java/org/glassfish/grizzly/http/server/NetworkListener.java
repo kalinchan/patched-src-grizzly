@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2010, 2017 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2010, 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -39,6 +40,7 @@ import org.glassfish.grizzly.Grizzly;
 import org.glassfish.grizzly.GrizzlyFuture;
 import org.glassfish.grizzly.PortRange;
 import org.glassfish.grizzly.ShutdownContext;
+import org.glassfish.grizzly.asyncqueue.AsyncQueueWriter;
 import org.glassfish.grizzly.filterchain.Filter;
 import org.glassfish.grizzly.filterchain.FilterChain;
 import org.glassfish.grizzly.filterchain.FilterChainContext;
@@ -186,6 +188,12 @@ public class NetworkListener {
      * Maximum size, in bytes, of all data waiting to be written.
      */
     private volatile int maxPendingBytes = -1;
+    /**
+     * Multiplier used to calculate the per-connection hard limit from the
+     * configured maximum pending bytes. If a write would exceed the hard limit,
+     * the write fails and the connection is closed. The default is {@code 4}.
+     */
+    private volatile int pendingBytesHardLimitMultiplier = AsyncQueueWriter.DEFAULT_PENDING_BYTES_HARD_LIMIT_MULTIPLIER;
     /**
      * Flag indicating the state of this listener.
      */
@@ -692,6 +700,36 @@ public class NetworkListener {
         this.maxPendingBytes = maxPendingBytes;
         transport.getAsyncQueueIO().getWriter().setMaxPendingBytesPerConnection(maxPendingBytes);
         }
+
+    /**
+     * Gets the multiplier used to calculate the hard limit for pending
+     * asynchronous writes per connection.
+     *
+     * @return the configured hard limit multiplier
+     */
+    public int getPendingBytesHardLimitMultiplier() {
+        return pendingBytesHardLimitMultiplier;
+
+    }
+
+    /**
+     * Sets the multiplier used to calculate the hard limit for pending
+     * asynchronous writes per connection.
+     *
+     * <p>A value greater than zero is used as the multiplier. A value less than
+     * or equal to zero resets the multiplier to the default value.</p>
+     *
+     * <p>The default value is {@code 4}.</p>
+     *
+     * @param multiplier the hard limit multiplier, or a non-positive value to
+     *        use the default multiplier
+     */
+    public void setPendingBytesHardLimitMultiplier(final int multiplier) {
+        final int effectiveMultiplier =
+                multiplier > 0 ? multiplier : AsyncQueueWriter.DEFAULT_PENDING_BYTES_HARD_LIMIT_MULTIPLIER;
+        this.pendingBytesHardLimitMultiplier = effectiveMultiplier;
+        transport.getAsyncQueueIO().getWriter().setPendingBytesHardLimitMultiplier(effectiveMultiplier);
+    }
 
     // ---------------------------------------------------------- Public Methods
 

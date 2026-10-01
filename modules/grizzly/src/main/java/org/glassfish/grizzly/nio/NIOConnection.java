@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2008, 2017 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2008, 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -54,6 +55,7 @@ import org.glassfish.grizzly.StandaloneProcessor;
 import org.glassfish.grizzly.StandaloneProcessorSelector;
 import org.glassfish.grizzly.Transport;
 import org.glassfish.grizzly.WriteResult;
+import org.glassfish.grizzly.asyncqueue.AsyncQueueWriter;
 import org.glassfish.grizzly.asyncqueue.AsyncReadQueueRecord;
 import org.glassfish.grizzly.asyncqueue.AsyncWriteQueueRecord;
 import org.glassfish.grizzly.asyncqueue.TaskQueue;
@@ -87,8 +89,9 @@ public abstract class NIOConnection implements Connection<SocketAddress> {
     
     protected final NIOTransport transport;
     protected volatile int maxAsyncWriteQueueSize;
-    protected volatile long readTimeoutMillis = 30000;
-    protected volatile long writeTimeoutMillis = 30000;
+    protected volatile int asyncWriteQueueSizeHardLimitMultiplier;
+    protected volatile long readTimeoutMillis = 30_000L;
+    protected volatile long writeTimeoutMillis = 30_000L;
     protected volatile SelectableChannel channel;
     protected volatile SelectionKey selectionKey;
     protected volatile SelectorRunner selectorRunner;
@@ -202,7 +205,27 @@ public abstract class NIOConnection implements Connection<SocketAddress> {
     public void setMaxAsyncWriteQueueSize(int maxAsyncWriteQueueSize) {
         this.maxAsyncWriteQueueSize = maxAsyncWriteQueueSize;
     }
-    
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getAsyncWriteQueueSizeHardLimitMultiplier() {
+        return asyncWriteQueueSizeHardLimitMultiplier;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setAsyncWriteQueueSizeHardLimitMultiplier(int asyncWriteQueueSizeHardLimitMultiplier) {
+        if (asyncWriteQueueSizeHardLimitMultiplier > 0) {
+            this.asyncWriteQueueSizeHardLimitMultiplier = asyncWriteQueueSizeHardLimitMultiplier;
+        } else {
+            this.asyncWriteQueueSizeHardLimitMultiplier = AsyncQueueWriter.DEFAULT_PENDING_BYTES_HARD_LIMIT_MULTIPLIER;
+        }
+    }
+
     @Override
     public long getReadTimeout(TimeUnit timeUnit) {
         return timeUnit.convert(readTimeoutMillis, TimeUnit.MILLISECONDS);
