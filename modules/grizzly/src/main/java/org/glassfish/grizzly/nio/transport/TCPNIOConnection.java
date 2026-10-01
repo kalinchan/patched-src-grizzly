@@ -1,7 +1,6 @@
 /*
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
- *
- * Copyright (c) 2008-2015 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2008, 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -137,6 +136,9 @@ public class TCPNIOConnection extends NIOConnection {
                     transportMaxAsyncWriteQueueSize == AsyncQueueWriter.AUTO_SIZE
                     ? getWriteBufferSize() * 4
                     : transportMaxAsyncWriteQueueSize);
+
+            setAsyncWriteQueueSizeHardLimitMultiplier(
+                    transport.getAsyncQueueIO().getWriter().getPendingBytesHardLimitMultiplier());
 
             localSocketAddressHolder = Holder.lazyHolder(
                     new NullaryFunction<SocketAddress>() {

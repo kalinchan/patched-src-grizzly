@@ -1,7 +1,6 @@
 /*
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
- *
- * Copyright (c) 2010-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2010, 2017 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -183,12 +182,23 @@ public class NetworkListener extends JmxObject {
 
 
     /**
-     * @see org.glassfish.grizzly.http.server.NetworkListener#getName()
+     * @see org.glassfish.grizzly.http.server.NetworkListener#getMaxPendingBytes()
      */
     @ManagedAttribute(id="max-pending-bytes")
     @Description("The maximum size, in bytes, a connection may have waiting to be sent to the client.")
     public int getMaxPendingBytes() {
         return listener.getMaxPendingBytes();
+    }
+
+
+    /**
+     * @see org.glassfish.grizzly.http.server.NetworkListener#getPendingBytesHardLimitMultiplier()
+     */
+    @ManagedAttribute(id = "pending-bytes-hard-limit-multiplier")
+    @Description(
+            "The multiplier applied to the per-connection maximum pending bytes to calculate the hard limit. If a write would exceed the hard limit, the write fails and the connection is closed.")
+    public int getPendingBytesHardLimitMultiplier() {
+        return listener.getPendingBytesHardLimitMultiplier();
     }
 
 

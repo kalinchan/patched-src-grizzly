@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
- *
- * Copyright (c) 2008-2015 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2008, 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -69,6 +69,16 @@ public interface AsyncQueueWriter<L>
     int AUTO_SIZE = -2;
 
     /**
+     * Default multiplier used to calculate the hard limit for the asynchronous
+     * write queue reservation size per connection.
+     *
+     * <p>The hard limit is calculated by multiplying the connection's configured
+     * soft limit by this value. If a write would exceed the hard limit, the write
+     * fails and the connection is closed.</p>
+     */
+    int DEFAULT_PENDING_BYTES_HARD_LIMIT_MULTIPLIER = 4;
+
+    /**
      * Method writes the {@link Buffer} to the specific address.
      *
      *
@@ -126,30 +136,52 @@ public interface AsyncQueueWriter<L>
 
 
     /**
-     * Configures the maximum number of bytes pending to be written
-     * for a particular {@link Connection}.
+     * Configures the soft limit for the maximum number of bytes pending to be written for a particular {@link Connection}.
      *
-     * @param maxQueuedWrites maximum number of bytes that may be pending to be
-     *  written to a particular {@link Connection}.
+     * @param maxPendingBytes the soft limit for the maximum number of bytes that may be pending to be written to a particular {@link Connection}.
      */
-    void setMaxPendingBytesPerConnection(final int maxQueuedWrites);
+    void setMaxPendingBytesPerConnection(final int maxPendingBytes);
 
 
     /**
-     * @return the maximum number of bytes that may be pending to be written
-     *  to a particular {@link Connection}.  By default, this will be four
-     *  times the size of the {@link java.net.Socket} send buffer size.
+     * Gets the configured soft limit for the maximum number of bytes pending to be written per connection for asynchronous writes.
+     *
+     * @return the configured soft limit. By default, this will be four times the size of the {@link java.net.Socket} send buffer size.
      */
     int getMaxPendingBytesPerConnection();
 
     /**
-     * Returns <tt>true</tt>, if async write queue is allowed to write buffer
-     * directly during write(...) method call, w/o adding buffer to the
-     * queue, or <tt>false</tt> otherwise.
+     * Sets the multiplier used to calculate the hard limit for the asynchronous
+     * write queue reservation size per connection.
      *
-     * @return <tt>true</tt>, if async write queue is allowed to write buffer
-     * directly during write(...) method call, w/o adding buffer to the
-     * queue, or <tt>false</tt> otherwise.
+     * <p>The hard limit is calculated by multiplying the connection's configured
+     * soft limit by this value. If adding a write would cause the reservation size
+     * to exceed the calculated hard limit, the write fails and the connection is closed.</p>
+     *
+     * <p>The default multiplier is {@code 4}.</p>
+     *
+     * @param multiplier the hard limit multiplier; must be greater than or equal
+     *        to {@code 1}
+     * @throws IllegalArgumentException if {@code multiplier} is less than {@code 1}
+     */
+    void setPendingBytesHardLimitMultiplier(final int multiplier);
+
+    /**
+     * Gets the multiplier used to calculate the hard limit for the asynchronous
+     * write queue reservation size per connection.
+     *
+     * <p>If adding a write would cause the reservation size to exceed the
+     * calculated hard limit, the write fails and the connection is closed.</p>
+     *
+     * <p>The default multiplier is {@code 4}.</p>
+     *
+     * @return the hard limit multiplier
+     */
+    int getPendingBytesHardLimitMultiplier();
+
+    /**
+     * Returns <tt>true</tt>, if async write queue is allowed to write buffer directly during write(...) method call, w/o
+     * adding buffer to the queue, or <tt>false</tt> otherwise.
      */
     boolean isAllowDirectWrite();
 

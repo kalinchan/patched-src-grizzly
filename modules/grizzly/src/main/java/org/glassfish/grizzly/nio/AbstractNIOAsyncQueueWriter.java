@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
- *
- * Copyright (c) 2008-2014 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2008, 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
@@ -82,7 +82,9 @@ public abstract class AbstractNIOAsyncQueueWriter
     protected volatile int maxWriteReentrants = 10;
     
     private volatile boolean isAllowDirectWrite = true;
-    
+
+    private volatile int pendingBytesHardLimitMultiplier = DEFAULT_PENDING_BYTES_HARD_LIMIT_MULTIPLIER;
+
     public AbstractNIOAsyncQueueWriter(NIOTransport transport) {
         this.transport = transport;
     }
@@ -102,7 +104,11 @@ public abstract class AbstractNIOAsyncQueueWriter
     public boolean canWrite(final Connection<SocketAddress> connection) {
         final NIOConnection nioConnection = (NIOConnection) connection;
         final int connectionMaxPendingBytes = nioConnection.getMaxAsyncWriteQueueSize();
-        
+
+        if (!nioConnection.isOpen()) {
+            return false;
+        }
+
         if (connectionMaxPendingBytes < 0) {
             return true;
         }
@@ -150,6 +156,26 @@ public abstract class AbstractNIOAsyncQueueWriter
     /**
      * {@inheritDoc}
      */
+    @Override
+    public void setPendingBytesHardLimitMultiplier(final int multiplier) {
+        if (multiplier < 1) {
+            throw new IllegalArgumentException("multiplier must be >= 1");
+        }
+        this.pendingBytesHardLimitMultiplier = multiplier;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getPendingBytesHardLimitMultiplier() {
+        return pendingBytesHardLimitMultiplier;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public boolean isAllowDirectWrite() {
         return isAllowDirectWrite;
     }
@@ -227,12 +253,28 @@ public abstract class AbstractNIOAsyncQueueWriter
 
         final boolean isLogFine = LOGGER.isLoggable(Level.FINEST);
 
+        final int maxPendingBytes = nioConnection.getMaxAsyncWriteQueueSize();
+        final long hardLimit = (long) maxPendingBytes * pendingBytesHardLimitMultiplier;
+        if ((maxPendingBytes >= 0 && pendingBytes > hardLimit)) {
+            if (isLogFine) {
+                doFineLog(
+                        "Asynchronous write queue hard limit exceeded. connection={0}, record={1}, directWrite={2}, size={3}, isUncountable={4}, bytesToReserve={5}, pendingBytes={6}, maxPendingBytes={7}, hardLimit={8}",
+                        nioConnection, queueRecord, isCurrent, queueRecord.remaining(), queueRecord.isUncountable(),
+                        bytesToReserve, pendingBytes, maxPendingBytes, hardLimit);
+            }
+            writeTaskQueue.releaseSpace(bytesToReserve);
+            // In the case of a graceful close, a trick involving writing Buffers#EMPTY_BUFFER is used.
+            // However, there is no need to allow additional writes in situations where an overflow occurs during the write operation.
+            onWriteFailure(nioConnection, queueRecord, false,
+                           new IOException("Asynchronous write queue limit exceeded for connection"));
+            return;
+        }
+
         if (isLogFine) {
-            doFineLog("AsyncQueueWriter.write connection={0}, record={1}, "
-                    + "directWrite={2}, size={3}, isUncountable={4}, "
-                    + "bytesToReserve={5}, pendingBytes={6}",
-                    nioConnection, queueRecord, isCurrent, queueRecord.remaining(),
-                    queueRecord.isUncountable(), bytesToReserve, pendingBytes);
+            doFineLog(
+                    "AsyncQueueWriter.write connection={0}, record={1}, " + "directWrite={2}, size={3}, isUncountable={4}, "
+                            + "bytesToReserve={5}, pendingBytes={6}, hardLimit={7}",
+                    nioConnection, queueRecord, isCurrent, queueRecord.remaining(), queueRecord.isUncountable(), bytesToReserve, pendingBytes, hardLimit);
         }
 
         final Reentrant reentrants = Reentrant.getWriteReentrant();
@@ -507,13 +549,19 @@ public abstract class AbstractNIOAsyncQueueWriter
     @Override
     public final void close() {
     }
-    
-    
-    protected static void onWriteFailure(final Connection connection,
-            final AsyncWriteQueueRecord failedRecord, final Throwable e) {
 
+    protected static void onWriteFailure(final Connection connection, final AsyncWriteQueueRecord failedRecord, final Throwable e) {
+        onWriteFailure(connection, failedRecord, true, e);
+    }
+
+    protected static void onWriteFailure(final Connection connection, final AsyncWriteQueueRecord failedRecord,
+                                         final boolean graceful, final Throwable e) {
         failedRecord.notifyFailure(e);
-        connection.closeSilently();
+        if (graceful) {
+            connection.closeSilently();
+        } else {
+            connection.terminateSilently();
+        }
     }
     
     protected abstract RecordWriteResult write0(NIOConnection connection,
