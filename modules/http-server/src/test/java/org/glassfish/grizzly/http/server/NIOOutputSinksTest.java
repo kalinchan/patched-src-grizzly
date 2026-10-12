@@ -1,5 +1,6 @@
 /*
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2010, 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * Copyright (c) 2010-2017 Oracle and/or its affiliates. All rights reserved.
  *
@@ -410,13 +411,11 @@ public class NIOOutputSinksTest {
 
     @Test
     public void testWriteExceptionPropagation() throws Exception {
-        final int LENGTH = 1024;
-        
-        final HttpServer server = new HttpServer();
-        final NetworkListener listener =
-                new NetworkListener("Grizzly",
-                                    NetworkListener.DEFAULT_NETWORK_HOST,
-                                    PORT);
+        int LENGTH = 1024;
+
+        HttpServer server = new HttpServer();
+        NetworkListener listener = new NetworkListener("Grizzly", DEFAULT_NETWORK_HOST, PORT);
+        listener.setMaxPendingBytes(-1);
         listener.registerAddOn(new AddOn() {
 
             @Override
