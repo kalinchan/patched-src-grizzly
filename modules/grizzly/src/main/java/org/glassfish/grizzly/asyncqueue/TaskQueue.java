@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2008, 2017 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
+ * Copyright (c) 2008, 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -32,6 +33,7 @@ import org.glassfish.grizzly.WriteHandler;
  */
 public final class TaskQueue<E extends AsyncQueueRecord> {
     private volatile boolean isClosed;
+    private Throwable closeCause = null;
 
     /**
      * The queue of tasks, which will be processed asynchronously
@@ -111,9 +113,8 @@ public final class TaskQueue<E extends AsyncQueueRecord> {
             }
         }
 
-        if (current != null &&
-                isClosed && currentElementUpdater.compareAndSet(this, current, null)) {
-            current.notifyFailure(new IOException("Connection closed"));
+        if (current != null && isClosed && currentElementUpdater.compareAndSet(this, current, null)) {
+            current.notifyFailure(new IOException("Connection closed", closeCause));
             return null;
         }
 
@@ -181,7 +182,7 @@ public final class TaskQueue<E extends AsyncQueueRecord> {
         }
 
         if (isClosed) {
-            writeHandler.onError(new IOException("Connection is closed"));
+            writeHandler.onError(new IOException("Connection is closed", closeCause));
             return;
         }
 
@@ -214,7 +215,7 @@ public final class TaskQueue<E extends AsyncQueueRecord> {
 
     private void checkWriteHandlerOnClose(final WriteHandler writeHandler) {
         if (isClosed && removeWriteHandler(writeHandler)) {
-            writeHandler.onError(new IOException("Connection is closed"));
+            writeHandler.onError(new IOException("Connection is closed", closeCause));
         }
     }
 
@@ -247,17 +248,15 @@ public final class TaskQueue<E extends AsyncQueueRecord> {
     public void setCurrentElement(final E task) {
         currentElement = task;
 
-        if (task != null && isClosed &&
-                currentElementUpdater.compareAndSet(this, task, null)) {
-            task.notifyFailure(new IOException("Connection closed"));
+        if (task != null && isClosed && currentElementUpdater.compareAndSet(this, task, null)) {
+            task.notifyFailure(new IOException("Connection closed", closeCause));
         }
     }
 
     public boolean compareAndSetCurrentElement(final E expected, final E newValue) {
         if (currentElementUpdater.compareAndSet(this, expected, newValue)) {
-            if (newValue != null && isClosed &&
-                    currentElementUpdater.compareAndSet(this, newValue, null)) {
-                newValue.notifyFailure(new IOException("Connection closed"));
+            if (newValue != null && isClosed && currentElementUpdater.compareAndSet(this, newValue, null)) {
+                newValue.notifyFailure(new IOException("Connection closed", closeCause));
                 return false;
             }
 
@@ -284,7 +283,7 @@ public final class TaskQueue<E extends AsyncQueueRecord> {
     public void offer(final E task) {
         queue.offer(task);
         if (isClosed && queue.remove(task)) {
-            task.notifyFailure(new IOException("Connection closed"));
+            task.notifyFailure(new IOException("Connection closed", closeCause));
         }
     }
 
@@ -297,6 +296,7 @@ public final class TaskQueue<E extends AsyncQueueRecord> {
     }
 
     public void onClose(final Throwable cause) {
+        closeCause = cause;
         isClosed = true;
 
         IOException error = null;
