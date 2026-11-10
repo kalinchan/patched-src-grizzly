@@ -645,7 +645,7 @@ public class AsyncWriteQueueTest {
             final byte[] more = new byte[packetSize];
             Arrays.fill(more, (byte) 1);
             final FutureImpl<Boolean> f = SafeFutureImpl.create();
-            asyncQueueWriter.write(connection, Buffers.wrap(mm, more), new EmptyCompletionHandler<>() {
+            asyncQueueWriter.write(connection, Buffers.wrap(mm, more), new EmptyCompletionHandler<WriteResult<WritableMessage, SocketAddress>>() {
 
                 @Override
                 public void completed(WriteResult result) {
@@ -797,25 +797,27 @@ public class AsyncWriteQueueTest {
             connection = transport.connect("localhost", port).get(10, TimeUnit.SECONDS);
             assertNotNull(connection);
 
-            var canWriteDuringClose = new AtomicBoolean(true);
-            var writePossibleCount = new AtomicInteger();
-            var error = new AtomicReference<>();
-            var closingConnection = connection;
-            closingConnection.addCloseListener(
-                    (org.glassfish.grizzly.CloseListener<Connection<SocketAddress>, ?>) (closeable, type) -> {
-                        canWriteDuringClose.set(asyncQueueWriter.canWrite(closingConnection));
-                        asyncQueueWriter.notifyWritePossible(closingConnection, new WriteHandler() {
-                            @Override
-                            public void onWritePossible() {
-                                writePossibleCount.incrementAndGet();
-                            }
+            final AtomicBoolean canWriteDuringClose = new AtomicBoolean(true);
+            final AtomicInteger writePossibleCount = new AtomicInteger();
+            final AtomicReference<Object> error = new AtomicReference<Object>();
+            final Connection<SocketAddress> closingConnection = connection;
+            closingConnection.addCloseListener(new org.glassfish.grizzly.CloseListener<Connection<SocketAddress>, ICloseType>() {
+                @Override
+                public void onClosed(Connection<SocketAddress> closeable, ICloseType type) throws IOException {
+                    canWriteDuringClose.set(asyncQueueWriter.canWrite(closingConnection));
+                    asyncQueueWriter.notifyWritePossible(closingConnection, new WriteHandler() {
+                        @Override
+                        public void onWritePossible() {
+                            writePossibleCount.incrementAndGet();
+                        }
 
-                            @Override
-                            public void onError(Throwable throwable) {
-                                error.set(throwable);
-                            }
-                        });
+                        @Override
+                        public void onError(Throwable throwable) {
+                            error.set(throwable);
+                        }
                     });
+                }
+            });
             closingConnection.close().get(3, TimeUnit.SECONDS);
 
             assertFalse(closingConnection.isOpen());

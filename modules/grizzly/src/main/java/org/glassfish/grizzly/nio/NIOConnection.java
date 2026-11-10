@@ -110,7 +110,6 @@ public abstract class NIOConnection implements Connection<SocketAddress> {
         DEFAULT_PENDING_BYTES_HARD_LIMIT = budgetBytesTotal / minConcurrentConnection;
     }
 
-    private final long id = CONNECTION_ID_GENERATOR.incrementAndGet();
     /** Is initial OP_READ enabling required for the connection */
     private boolean isInitialReadRequired = true;
     
