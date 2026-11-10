@@ -617,7 +617,7 @@ public class AsyncWriteQueueTest {
             final byte[] more = new byte[packetSize];
             Arrays.fill(more, (byte) 1);
             final FutureImpl<Boolean> f = SafeFutureImpl.create();
-            asyncQueueWriter.write(connection, Buffers.wrap(mm, more), new EmptyCompletionHandler<>() {
+            asyncQueueWriter.write(connection, Buffers.wrap(mm, more), new EmptyCompletionHandler<WriteResult<WritableMessage, SocketAddress>>() {
 
                 @Override
                 public void completed(WriteResult result) {
@@ -769,10 +769,10 @@ public class AsyncWriteQueueTest {
             connection = transport.connect("localhost", port).get(10, TimeUnit.SECONDS);
             assertNotNull(connection);
 
-            var canWriteDuringClose = new AtomicBoolean(true);
-            var writePossibleCount = new AtomicInteger();
-            var error = new AtomicReference<>();
-            var closingConnection = connection;
+            AtomicBoolean canWriteDuringClose = new AtomicBoolean(true);
+            AtomicInteger writePossibleCount = new AtomicInteger();
+            AtomicReference<Object> error = new AtomicReference<>();
+            Connection<SocketAddress> closingConnection = connection;
             closingConnection.addCloseListener(
                     (org.glassfish.grizzly.CloseListener<Connection<SocketAddress>, ?>) (closeable, type) -> {
                         canWriteDuringClose.set(asyncQueueWriter.canWrite(closingConnection));
